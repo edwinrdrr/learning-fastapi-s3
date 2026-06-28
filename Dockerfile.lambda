@@ -1,0 +1,27 @@
+# AWS Lambda container image — deploy THIS image to Lambda (behind API Gateway).
+# Every other target (App Runner / ECS / EC2) uses the regular ./Dockerfile, which
+# runs uvicorn. Lambda instead needs the Runtime Interface that this base provides.
+#
+# Build for x86_64 to match a default x86_64 Lambda AND the baked extensions:
+#   docker build --platform linux/amd64 -f Dockerfile.lambda -t <ecr-image> .
+FROM public.ecr.aws/lambda/python:3.12
+
+# Runtime dependencies, incl. mangum (the ASGI -> Lambda adapter used by
+# app/lambda_handler.py). Installed into the image's site-packages.
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Pre-bake DuckDB's httpfs + aws extensions so COLD STARTS NEED NO NETWORK.
+# app/daily.py loads them from here (read-only) when DUCKDB_EXTENSION_DIRECTORY is set,
+# instead of downloading on first use.
+ENV DUCKDB_EXTENSION_DIRECTORY=/opt/duckdb_ext
+RUN python -c "import duckdb; c=duckdb.connect(); \
+c.execute(\"SET extension_directory='/opt/duckdb_ext'\"); \
+c.execute('INSTALL httpfs'); c.execute('INSTALL aws')"
+
+# At runtime only /tmp is writable; give DuckDB a writable HOME for scratch.
+ENV HOME=/tmp
+
+# App code into the Lambda task root, then point Lambda at the Mangum handler.
+COPY app ${LAMBDA_TASK_ROOT}/app
+CMD ["app.lambda_handler.handler"]

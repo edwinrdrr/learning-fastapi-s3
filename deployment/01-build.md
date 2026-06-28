@@ -33,9 +33,17 @@ mangum           # ASGI->AWS Lambda adapter (only used by app/lambda_handler.py)
 `requirements-dev.txt` adds `pytest` + `httpx` for the test suite.
 
 > **DuckDB extensions:** `httpfs` (and `aws`, on real AWS) are **not** pip packages — DuckDB
-> downloads them at runtime on first use. That's fine on a normal container with egress. On
-> Lambda, give it egress or bundle them, and set `HOME=/tmp` (see
+> downloads them at runtime on first use. That's fine on a normal container with egress
+> (App Runner / ECS / EC2). For **Lambda**, build `Dockerfile.lambda` instead — it pre-bakes
+> the extensions into the image so cold starts need no network (see
 > [`../infra-choices/04-lambda.md`](../infra-choices/04-lambda.md)).
+
+## Two Dockerfiles
+
+| File | Use for | Runs |
+|---|---|---|
+| `Dockerfile` | App Runner / ECS / EC2 | `uvicorn` web server on port 8000 |
+| `Dockerfile.lambda` | AWS Lambda | AWS base image + Mangum handler; bakes DuckDB extensions |
 
 ## Build & tag
 

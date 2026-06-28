@@ -5,10 +5,10 @@ Lambda, behind API Gateway). For every other runtime — local dev, App Runner,
 ECS, EC2 — this file is unused; those run uvicorn against `app.main:app` directly.
 
 Lambda notes:
+  - Build with Dockerfile.lambda (AWS base image + Runtime Interface). It bakes
+    DuckDB's httpfs/aws extensions into the image and sets DUCKDB_EXTENSION_DIRECTORY
+    + HOME=/tmp, so cold starts load them offline (no egress needed).
   - Memory: 2048 MB (Lambda CPU scales with memory; DuckDB wants the headroom).
-  - DuckDB downloads the httpfs/aws extensions on first use, so the function
-    needs egress (or bundle the extensions into the image). Point DuckDB's home
-    at a writable dir, e.g. set HOME=/tmp.
   - S3 access uses the function's IAM role (leave S3_ENDPOINT_URL and the static
     AWS keys unset); see app/storage.py and app/daily.py.
 """

@@ -69,14 +69,33 @@ def _s3_secret_sql() -> str:
     )
 
 
+def _load_s3_extensions(con: duckdb.DuckDBPyConnection) -> None:
+    """Load httpfs (+ aws, for the credential chain on real AWS).
+
+    If `DUCKDB_EXTENSION_DIRECTORY` is set — e.g. baked into the Lambda image at
+    build time (see `Dockerfile.lambda`) — load the pre-installed extensions from
+    there with **no network**. Otherwise INSTALL on first use, which downloads
+    them (fine for long-lived containers with egress).
+    """
+    ext_dir = os.environ.get("DUCKDB_EXTENSION_DIRECTORY")
+    need_aws = not settings.s3_endpoint_url
+    if ext_dir:
+        con.execute(f"SET extension_directory='{ext_dir}'")
+        con.execute("LOAD httpfs")
+        if need_aws:
+            con.execute("LOAD aws")
+    else:
+        con.execute("INSTALL httpfs; LOAD httpfs;")
+        if need_aws:
+            con.execute("INSTALL aws; LOAD aws;")
+
+
 def _conn() -> duckdb.DuckDBPyConnection:
     """Per-thread DuckDB connection, configured for S3 access on first use."""
     con = getattr(_local, "con", None)
     if con is None:
         con = duckdb.connect()
-        con.execute("INSTALL httpfs; LOAD httpfs;")
-        if not settings.s3_endpoint_url:
-            con.execute("INSTALL aws; LOAD aws;")
+        _load_s3_extensions(con)
         con.execute(_s3_secret_sql())
         _local.con = con
     return con
