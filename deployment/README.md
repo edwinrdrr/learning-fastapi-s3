@@ -34,6 +34,7 @@ role needs read **and** write, even though `/scrape` is read-only. See
 | [06-consume.md](06-consume.md) | How a client consumes the API (auth, endpoints, paging loop) |
 | [07-curl-cookbook.md](07-curl-cookbook.md) | **Copy-paste curl commands** to test every endpoint (blacklist, scrape, readings…) |
 | [08-images-and-ecr.md](08-images-and-ecr.md) | Images vs ECR vs where your code runs (why Lambda needs ECR; the two images) |
+| [09-lambda-deployment.md](09-lambda-deployment.md) | **Focused: the Lambda + ECR deployment only** — architecture, build→ECR→function, request flow |
 
 ## Related docs (not duplicated here)
 
