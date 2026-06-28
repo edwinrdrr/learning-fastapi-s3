@@ -4,6 +4,30 @@ A common point of confusion: *"if the code runs on Lambda, why do we need ECR?"*
 answers that by separating three things that are easy to blur together — **your code**, the
 **image** that packages it, and the **registry (ECR)** that stores the image.
 
+## Quick answers (the plain version)
+
+**Q: "The FastAPI app and route handler (`app/main.py`, `app/routers/scrape.py`) — is that code
+running on Lambda?"**
+Yes. That's **your own code**, and when you deploy to Lambda it runs **inside the Lambda
+function**. It is **not** Lambda-specific — the *exact same* code runs inside the container on
+App Runner / ECS / EC2. The only Lambda-specific file is `app/lambda_handler.py` (Mangum), which
+just hands the incoming request to this same app. **One codebase, different hosts.**
+
+**Q: "If the code runs on Lambda, why do we need ECR?"**
+Because **the code is not stored on Lambda — Lambda holds no code of its own.** Your code is
+packed into an **image** (a box with your app + everything it needs), and that box is **stored in
+ECR**. When a request comes in, **Lambda fetches the box from ECR and runs it.**
+
+- **ECR** = where the code is **stored**.
+- **Lambda** = the thing that **runs** it (it pulls the box from ECR).
+
+> Analogy: **ECR is a locker** where your packed lunch (the image) sits. **Lambda is you at
+> lunchtime** — you walk to the locker, grab the lunch, and eat it. You don't carry the lunch
+> around all day; it lives in the locker until you need it. So even with Lambda you need ECR:
+> Lambda has nowhere to keep the code, so the code lives in ECR and Lambda pulls it from there.
+
+The rest of this page is the longer version of those two answers.
+
 ## 1. Your code vs the host that runs it
 
 Your application code is the `app/` package — `main.py`, `routers/`, `daily.py`, `storage.py`.

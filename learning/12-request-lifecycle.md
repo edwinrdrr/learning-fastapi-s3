@@ -39,6 +39,11 @@ Header: X-API-Key: <key>        (only needed if API_KEY is configured)
 
 Two supporting facts before we walk it:
 
+- **Where your code runs:** steps **④–⑨ are your own `app/` code** (`main.py`, `routers/`,
+  `daily.py`). On **Lambda** they run *inside the Lambda function*; on **App Runner / ECS / EC2**
+  the *same* code runs inside the container. The only thing that swaps is the adapter at ③
+  (**Mangum** on Lambda, **uvicorn** on a container). It's one codebase, different hosts — not
+  separate "Lambda code."
 - **Where credentials come from:** both boto3 (`app/storage.py`) and DuckDB (`app/daily.py`)
   read S3 credentials from the **IAM role** on AWS (or static keys against local MinIO). No
   secrets live in the code.
