@@ -35,6 +35,7 @@ required for the early lessons. We start from "what even is an API" and build up
 | 09 | [Making it fast](09-making-it-fast.md) | The data-engineering speed tricks |
 | 10 | [Production concerns](10-production-concerns.md) | Auth, Docker, tests, deployment |
 | 11 | [Uploads](11-uploads.md) | Sending data *in* (files, JSON, presigned URLs) |
+| 12 | [Request lifecycle](12-request-lifecycle.md) | End-to-end trace: client → response, through the real code |
 | — | [Glossary](glossary.md) | Every term, defined plainly |
 | — | [Exercises](exercises.md) | Hands-on challenges + hints |
 

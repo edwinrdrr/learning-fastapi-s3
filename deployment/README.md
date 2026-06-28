@@ -33,6 +33,7 @@ role needs read **and** write, even though `/scrape` is read-only. See
 | [05-deploy-aws.md](05-deploy-aws.md) | AWS prerequisites (bucket, ECR, IAM, secret) common to every target |
 | [06-consume.md](06-consume.md) | How a client consumes the API (auth, endpoints, paging loop) |
 | [07-curl-cookbook.md](07-curl-cookbook.md) | **Copy-paste curl commands** to test every endpoint (blacklist, scrape, readings…) |
+| [08-images-and-ecr.md](08-images-and-ecr.md) | Images vs ECR vs where your code runs (why Lambda needs ECR; the two images) |
 
 ## Related docs (not duplicated here)
 
