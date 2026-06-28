@@ -1,0 +1,56 @@
+# Two containers:
+#   minio = an S3-compatible object store that runs locally (stands in for AWS S3)
+#   api   = our FastAPI app, talking to MinIO with boto3
+#
+# THE BIG IDEA: boto3 doesn't know or care that it's MinIO. The same code points
+# at real AWS S3 by changing only S3_ENDPOINT_URL + credentials. That's how you
+# develop offline/free and deploy to the cloud unchanged.
+
+services:
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"   # S3 API  (boto3 talks here)
+      - "9001:9001"   # Web console — open http://localhost:9001 to SEE your files
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # Inside the compose network, "minio" resolves to the container.
+      S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_REGION: us-east-1
+      S3_BUCKET: readings
+      # Dev defaults; set API_KEY to require auth. CORS_ORIGINS / RATE_LIMIT tunable.
+      # API_KEY: ""
+    # DEV override: hot-reload, single process. The image's default CMD is the
+    # production server (multiple workers, no reload).
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      - ./app:/code/app   # live code reload without rebuild
+    depends_on:
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)"]
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 10
+
+volumes:
+  miniodata:

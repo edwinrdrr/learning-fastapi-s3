@@ -1,0 +1,9 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+boto3==1.35.90
+duckdb==1.1.3
+pydantic==2.10.4
+pydantic-settings==2.7.0
+slowapi==0.1.9
+python-multipart==0.0.20
+mangum==0.17.0

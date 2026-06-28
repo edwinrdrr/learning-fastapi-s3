@@ -1,0 +1,13 @@
+# Keep the build context (and final image) small and free of junk/secrets.
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+.git/
+.gitignore
+.env
+*.md
+docs/
+tests/
+requirements-dev.txt
