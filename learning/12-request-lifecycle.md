@@ -138,6 +138,74 @@ past the end of the day.
 
 ---
 
+## Cold starts: what "first time" means, and how long
+
+A **cold start** is the first request handled by a **new** Lambda instance — *not* just the first
+request ever. Lambda creates a new (cold) instance when:
+
+- you **just deployed or updated** the function,
+- a request arrives and **no warm instance is free**,
+- it **scales up** — N concurrent requests with fewer warm instances → N new instances → N cold
+  starts at once,
+- instances were **reclaimed after idle** (roughly ~5–15 min of no traffic; not officially fixed).
+
+After its first request, an instance stays **warm** and is **reused** until reclaimed. A low-traffic
+API goes cold between bursts — that's the scale-to-zero trade-off.
+
+A cold start is two phases stacked:
+
+| Phase | What happens | ~Time (estimate) |
+|---|---|---|
+| Platform init | Lambda provisions the instance + loads the container image (**pulls from ECR** the first time, cached layers after) | ~0.3–1.5 s |
+| App init | imports `fastapi`/`boto3`/**`duckdb`**, loads the baked `httpfs`/`aws` extensions (local, fast), builds the app, runs the startup `head_bucket` | ~0.5–1.5 s |
+| **Cold start total** | | **~1–3 s** (the first-ever pull after a deploy is slowest) |
+
+**Warm** requests skip both phases → just the request work (tens of ms + S3 latency).
+
+Reduce it with: **more memory** (2048 MB here → more CPU → faster init), or **provisioned
+concurrency** (keeps instances permanently warm — but costs 24/7, which defeats scale-to-zero; if
+you need that, App Runner is the better fit).
+
+> These are typical figures, **not measured** on a deployed Lambda for this app.
+
+---
+
+## How long to fetch many big days (e.g. 15 days)?
+
+Remember the API is **one day per request**, paginated at `page_size ≤ 5000`. So 15 days is **not
+one call** — the client **loops over 15 dates** and pages through each. If a day is ~20k rows,
+that's ~4 pages/day → **~60 requests** for 15 days.
+
+When each day is big, the total time is **dominated by total bytes ÷ the client's download
+bandwidth**, not by the number of requests:
+
+```
+total ≈ cold start(s)  +  per-request overhead  +  (total bytes ÷ client bandwidth)
+                                                    ▲ the dominant term when days are big
+```
+
+**Worked example** (assume ~20k rows ≈ ~9 MB JSON per day):
+- 15 days ≈ 300k rows ≈ **~135 MB of JSON** to move.
+- **The hard floor is just the download:** 135 MB at 50 Mbps ≈ **~22 s**; at 200 Mbps ≈ **~5 s**;
+  at 1 Gbps ≈ **~1 s**. You can't go faster than your pipe.
+- **Sequential** (one request at a time): + one cold start (~2 s) + ~60 × per-request overhead
+  (~0.1–0.3 s each) on top of the transfer → roughly **~30–45 s** on a 50 Mbps link.
+- **Parallel** (fetch several days at once): overlaps the cold starts and per-request latency, so
+  the total falls toward the **bandwidth floor** (~5–22 s here). Parallel requests **share** your
+  download pipe, so they can't beat `total_bytes ÷ bandwidth` — they just stop you waiting on
+  round-trips. (Note: many parallel requests may trigger several **cold starts** at once, and can
+  hit the `RATE_LIMIT`.)
+
+**Takeaways:**
+- **Parallelize** the per-day loop to hide latency + cold starts.
+- The hard floor is **total volume ÷ your bandwidth** — for big exports, that's the real cost.
+- If "big" means tens/hundreds of MB regularly, shipping JSON **through** Lambda/API Gateway is slow
+  and expensive (you pay Lambda GB-seconds + gateway transfer for every page). The better pattern is
+  to hand the client a **presigned S3 URL** so it downloads the Parquet **directly from S3** — no API
+  in the path, far faster and cheaper. This API is built for **slicing/paging**, not bulk dumps.
+
+---
+
 ## What can go wrong, and where
 
 | Status | Where | Meaning |
